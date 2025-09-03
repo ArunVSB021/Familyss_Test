@@ -1,0 +1,50 @@
+name: Java CI with Allure Reports
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test_and_report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v2
+        with:
+          java-version: '1.8'
+          distribution: 'adopt'
+
+      - name: Run Tests with Maven
+        run: mvn clean test
+
+      - name: Get Allure History
+        uses: actions/checkout@v2
+        if: always()
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+      
+      - name: Allure Report Generation
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        id: allure-report
+        with:
+          allure_results_folder: target/allure-results
+          allure_history_folder: gh-pages/allure-history
+          
+      - name: Deploy report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          enable_jekyll: true
