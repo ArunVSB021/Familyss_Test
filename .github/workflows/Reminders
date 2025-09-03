@@ -1,0 +1,50 @@
+name: Milestone Reminder
+
+on:
+  schedule:
+    # Run daily at 9 AM UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch: # allow manual run too
+
+jobs:
+  milestone-reminder:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check milestones and send reminders
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: milestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open"
+            });
+
+            const today = new Date();
+            const upcoming = milestones.filter(m => {
+              if (!m.due_on) return false;
+              const dueDate = new Date(m.due_on);
+              const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+              return diffDays <= 3 && diffDays >= 0; // due within next 3 days
+            });
+
+            if (upcoming.length === 0) {
+              console.log("✅ No milestones due soon.");
+              return;
+            }
+
+            for (const m of upcoming) {
+              const dueDate = new Date(m.due_on).toISOString().split("T")[0];
+              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate}! (${m.open_issues} open issues remain)`;
+
+              // Post a comment on the repo's default issue (or adjust target)
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: 1, // change this to a tracking issue number
+                body: message
+              });
+
+              console.log("Posted reminder for milestone:", m.title);
+            }
