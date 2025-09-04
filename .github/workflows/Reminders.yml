@@ -20,24 +20,18 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Get both open and closed milestones
-            const { data: milestones } = await github.paginate(github.rest.issues.listMilestones, {
+            const { data: milestones } = await github.rest.issues.listMilestones({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: "all"
+              state: "open"
             });
 
             const today = new Date();
-            today.setUTCHours(0,0,0,0); // normalize to start of day
-
             const upcoming = milestones.filter(m => {
               if (!m.due_on) return false;
               const dueDate = new Date(m.due_on);
-              dueDate.setUTCHours(0,0,0,0);
               const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-
-              // include due today (diffDays === 0), upcoming (<=3), and also closed milestones due today
-              return diffDays <= 3 && diffDays >= 0;
+              return diffDays <= 3 && diffDays >= 0; // due within next 3 days
             });
 
             if (upcoming.length === 0) {
@@ -48,10 +42,7 @@ jobs:
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
               const description = m.description ? m.description : "No description provided.";
-              const assignee = m.creator ? `👤 Assigned to: @${m.creator.login}` : "👤 No assignee.";
-              const state = m.state === "closed" ? "✅ (Closed)" : "🟢 (Open)";
-
-              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate} ${state}\n\n📌 **Description:** ${description}\n\n🔢 **Open Issues:** ${m.open_issues}\n${assignee}`;
+              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate}!\n\n📌 **Description:** ${description}\n\n🔢 **Open Issues:** ${m.open_issues}`;
 
               // Post a comment to a tracking issue (update the issue_number!)
               await github.rest.issues.createComment({
