@@ -1,16 +1,34 @@
+name: Milestone Reminder
+
+on:
+  schedule:
+    # Runs every day at 9 AM UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch: # allow manual trigger
+
+permissions:
+  issues: write   # ✅ needed to comment on issues
+  contents: read  # safe default
+
+jobs:
+  milestone-reminder:
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Check milestones and post reminder
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // Fetch all milestones (open + closed)
-            const { data: milestones } = await github.rest.issues.listMilestones({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "all"
-            });
-
-            console.log(`Fetched ${milestones.length} milestones`);
+            const { data: milestones } = await github.paginate(
+              github.rest.issues.listMilestones,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "all"
+              }
+            );
 
             const today = new Date();
             today.setUTCHours(0,0,0,0);
@@ -29,7 +47,7 @@
               return;
             }
 
-            // Build one combined reminder message
+            // Build a single consolidated comment
             let combinedMessage = "## ⏰ Milestone Reminder Report\n\n";
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
@@ -47,7 +65,7 @@
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: 1, // 👈 change this to your tracking issue number
+              issue_number: 1, // 👈 update this to your dedicated tracking issue ID
               body: combinedMessage
             });
 
