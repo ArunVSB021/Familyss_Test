@@ -4,14 +4,13 @@
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             // Fetch all milestones (open + closed)
-            const milestones = await github.paginate(
-              github.rest.issues.listMilestones,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: "all"
-              }
-            );
+            const { data: milestones } = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "all"
+            });
+
+            console.log(`Fetched ${milestones.length} milestones`);
 
             const today = new Date();
             today.setUTCHours(0,0,0,0);
@@ -30,7 +29,7 @@
               return;
             }
 
-            // Build a single consolidated comment
+            // Build one combined reminder message
             let combinedMessage = "## ⏰ Milestone Reminder Report\n\n";
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
@@ -48,7 +47,7 @@
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: 1, // 👈 update this
+              issue_number: 1, // 👈 change this to your tracking issue number
               body: combinedMessage
             });
 
