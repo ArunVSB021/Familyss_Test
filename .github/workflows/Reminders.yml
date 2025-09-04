@@ -15,23 +15,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check milestones and send reminders
+      - name: Check milestones and post reminder
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: milestones } = await github.rest.issues.listMilestones({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "open"
-            });
+            // Fetch all milestones (open + closed)
+            const { data: milestones } = await github.paginate(
+              github.rest.issues.listMilestones,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "all"
+              }
+            );
 
             const today = new Date();
+            today.setUTCHours(0,0,0,0);
+
+            // Pick milestones due today or in next 3 days
             const upcoming = milestones.filter(m => {
               if (!m.due_on) return false;
               const dueDate = new Date(m.due_on);
+              dueDate.setUTCHours(0,0,0,0);
               const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-              return diffDays <= 3 && diffDays >= 0; // due within next 3 days
+              return diffDays <= 3 && diffDays >= 0;
             });
 
             if (upcoming.length === 0) {
@@ -39,18 +47,26 @@ jobs:
               return;
             }
 
+            // Build a single consolidated comment
+            let combinedMessage = "## ⏰ Milestone Reminder Report\n\n";
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
-              const description = m.description ? m.description : "No description provided.";
-              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate}!\n\n📌 **Description:** ${description}\n\n🔢 **Open Issues:** ${m.open_issues}`;
+              const description = m.description || "No description provided.";
+              const assignee = m.creator ? `👤 Assigned to: @${m.creator.login}` : "👤 No assignee.";
+              const state = m.state === "closed" ? "✅ (Closed)" : "🟢 (Open)";
 
-              // Post a comment to a tracking issue (update the issue_number!)
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: 1, // 👈 change this to your actual tracking issue
-                body: message
-              });
-
-              console.log("Posted reminder for milestone:", m.title);
+              combinedMessage += `### 🔹 ${m.title} — Due on ${dueDate} ${state}\n`;
+              combinedMessage += `📌 **Description:** ${description}\n\n`;
+              combinedMessage += `🔢 **Open Issues:** ${m.open_issues}\n`;
+              combinedMessage += `${assignee}\n\n---\n\n`;
             }
+
+            // Post as one comment in a tracking issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 1, // 👈 update this to your dedicated tracking issue ID
+              body: combinedMessage
+            });
+
+            console.log("✅ Posted combined milestone reminder.");
