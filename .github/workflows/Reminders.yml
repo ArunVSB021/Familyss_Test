@@ -36,7 +36,7 @@ jobs:
               dueDate.setUTCHours(0,0,0,0);
               const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
 
-              // include milestones due today or within next 3 days
+              // include due today (diffDays === 0), upcoming (<=3), and also closed milestones due today
               return diffDays <= 3 && diffDays >= 0;
             });
 
@@ -45,26 +45,21 @@ jobs:
               return;
             }
 
-            // Build one combined reminder message
-            let combinedMessage = "## ⏰ Milestone Reminder\n\n";
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
               const description = m.description ? m.description : "No description provided.";
               const assignee = m.creator ? `👤 Assigned to: @${m.creator.login}` : "👤 No assignee.";
               const state = m.state === "closed" ? "✅ (Closed)" : "🟢 (Open)";
 
-              combinedMessage += `### 🔹 ${m.title} — Due on ${dueDate} ${state}\n`;
-              combinedMessage += `📌 **Description:** ${description}\n\n`;
-              combinedMessage += `🔢 **Open Issues:** ${m.open_issues}\n`;
-              combinedMessage += `${assignee}\n\n---\n\n`;
+              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate} ${state}\n\n📌 **Description:** ${description}\n\n🔢 **Open Issues:** ${m.open_issues}\n${assignee}`;
+
+              // Post a comment to a tracking issue (update the issue_number!)
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: 1, // 👈 change this to your actual tracking issue
+                body: message
+              });
+
+              console.log("Posted reminder for milestone:", m.title);
             }
-
-            // Post one comment with all reminders
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: 1, // 👈 change to your tracking issue
-              body: combinedMessage
-            });
-
-            console.log("✅ Posted combined milestone reminder.");
