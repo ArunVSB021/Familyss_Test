@@ -2,25 +2,24 @@ name: Milestone Reminder
 
 on:
   schedule:
-    # Runs every day at 9 AM UTC
-    - cron: "0 9 * * *"
+    - cron: "0 9 * * *" # Runs every day at 9 AM UTC
   workflow_dispatch: # allow manual trigger
 
 permissions:
-  issues: write   # ✅ needed to comment on issues
-  contents: read  # safe default
+  issues: read
+  contents: read
 
 jobs:
   milestone-reminder:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check milestones and post reminder
+      - name: Collect milestone reminders
+        id: collect
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Fetch all milestones (open + closed)
             const { data: milestones } = await github.paginate(
               github.rest.issues.listMilestones,
               {
@@ -33,40 +32,39 @@ jobs:
             const today = new Date();
             today.setUTCHours(0,0,0,0);
 
-            // Pick milestones due today or in next 3 days
             const upcoming = milestones.filter(m => {
               if (!m.due_on) return false;
               const dueDate = new Date(m.due_on);
               dueDate.setUTCHours(0,0,0,0);
               const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-              return diffDays <= 3 && diffDays >= 0;
+              return diffDays <= 3 && diffDays >= 0; // Due today or within next 3 days
             });
 
             if (upcoming.length === 0) {
-              console.log("✅ No milestones due soon.");
+              core.setOutput("body", "✅ No milestones due today or soon.");
               return;
             }
 
-            // Build a single consolidated comment
-            let combinedMessage = "## ⏰ Milestone Reminder Report\n\n";
+            let body = `📢 **Milestone Reminder Report**\n\n`;
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
               const description = m.description || "No description provided.";
               const assignee = m.creator ? `👤 Assigned to: @${m.creator.login}` : "👤 No assignee.";
               const state = m.state === "closed" ? "✅ (Closed)" : "🟢 (Open)";
-
-              combinedMessage += `### 🔹 ${m.title} — Due on ${dueDate} ${state}\n`;
-              combinedMessage += `📌 **Description:** ${description}\n\n`;
-              combinedMessage += `🔢 **Open Issues:** ${m.open_issues}\n`;
-              combinedMessage += `${assignee}\n\n---\n\n`;
+              body += `---\n### ${m.title} ${state}\n- 📅 Due: ${dueDate}\n- 📌 Description: ${description}\n- 🔢 Open Issues: ${m.open_issues}\n- ${assignee}\n\n`;
             }
 
-            // Post as one comment in a tracking issue
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: 1, // 👈 update this to your dedicated tracking issue ID
-              body: combinedMessage
-            });
+            core.setOutput("body", body);
 
-            console.log("✅ Posted combined milestone reminder.");
+      - name: Send Email Report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "📢 GitHub Milestone Reminder Report"
+          to: team@example.com
+          from: "github-actions@example.com"
+          content_type: text/markdown
+          body: ${{ steps.collect.outputs.body }}
