@@ -41,7 +41,8 @@ jobs:
 
             for (const m of upcoming) {
               const dueDate = new Date(m.due_on).toISOString().split("T")[0];
-              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate}! (${m.open_issues} open issues remain)`;
+              const description = m.description ? m.description : "No description provided.";
+              const message = `⚠️ Reminder: Milestone **${m.title}** is due on ${dueDate}!\n\n📌 **Description:** ${description}\n\n🔢 **Open Issues:** ${m.open_issues}`;
 
               // Post a comment to a tracking issue (update the issue_number!)
               await github.rest.issues.createComment({
