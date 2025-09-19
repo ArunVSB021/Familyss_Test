@@ -3,13 +3,15 @@
 <suite name="Failed suite [Default suite]" guice-stage="DEVELOPMENT">
   <test thread-count="5" name="Default test(failed)">
     <classes>
-      <class name="API.MailinatorOTPTest">
+      <class name="API.UserModuleTest">
         <methods>
+          <include name="setupReport"/>
+          <include name="setUpTest"/>
           <include name="tearDown"/>
-          <include name="testFetchOtpFromMailinator"/>
-          <include name="setUp"/>
+          <include name="testLoginSuccess"/>
+          <include name="testDeleteUser"/>
         </methods>
-      </class> <!-- API.MailinatorOTPTest -->
+      </class> <!-- API.UserModuleTest -->
     </classes>
   </test> <!-- Default test(failed) -->
 </suite> <!-- Failed suite [Default suite] -->
