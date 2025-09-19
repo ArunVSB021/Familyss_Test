@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - jmeter-tests
-      - main       # optional: include main if you want it to run there too
+      - main       # optional: run on main too
   workflow_dispatch:  # allow manual trigger
 
 jobs:
@@ -28,13 +28,10 @@ jobs:
           mv apache-jmeter-5.6.3 $HOME/jmeter
           chmod +x $HOME/jmeter/bin/jmeter
 
-      - name: Install JMeter Plugins Manager
-        run: |
-          wget https://jmeter-plugins.org/get/ -O $HOME/jmeter/lib/ext/jmeter-plugins-manager.jar
-
       - name: Install Ultimate Thread Group Plugin
         run: |
-          $HOME/jmeter/bin/PluginsManagerCMD.sh install jpgc-ultimate-thread-group
+          wget https://jmeter-plugins.org/files/packages/jpgc-ultimate-thread-group-2.3.zip -O /tmp/utg.zip
+          unzip /tmp/utg.zip -d $HOME/jmeter/lib/ext
 
       - name: Verify JMX file exists
         run: |
