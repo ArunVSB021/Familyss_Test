@@ -2,10 +2,10 @@ name: JMeter Load Tests
 
 on:
   push:
-    branches: 
-      - jmeter-tests   # run on this branch
-      - main           # optional: run on main branch too
-  workflow_dispatch:   # allow manual trigger from Actions tab
+    branches:
+      - jmeter-tests
+      - main       # optional: include main if you want it to run there too
+  workflow_dispatch:  # allow manual trigger
 
 jobs:
   run-jmeter:
@@ -26,13 +26,22 @@ jobs:
           wget https://downloads.apache.org/jmeter/binaries/apache-jmeter-5.6.3.tgz
           tar -xvzf apache-jmeter-5.6.3.tgz
           mv apache-jmeter-5.6.3 $HOME/jmeter
+          chmod +x $HOME/jmeter/bin/jmeter
+
+      - name: Verify JMX file exists
+        run: |
+          ls -l Jmeter/
+          if [ ! -f "Jmeter/View Results Tree.jmx" ]; then
+            echo "ERROR: JMX file not found!"
+            exit 1
+          fi
 
       - name: Run JMeter Test Plan
         run: |
           $HOME/jmeter/bin/jmeter -n -t "Jmeter/View Results Tree.jmx" -l results.jtl -e -o report
 
       - name: Upload JMeter HTML Report
-        uses: actions/upload-artifact@v4   # updated version
+        uses: actions/upload-artifact@v4
         with:
           name: jmeter-html-report
           path: report
